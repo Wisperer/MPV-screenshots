@@ -36,6 +36,8 @@ do
   declare currentPercent="$((${startPercent}*$i))"
   declare name="${filename%.*}_${currentPercent}_percent.png"
   mpv --really-quiet --no-audio --no-sub --start="${currentPercent}%" --frames=1 "${file}" -o "${name}"
+  mv ./${name} ~/Pictures/"${file}"/
+
 
 done
 
