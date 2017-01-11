@@ -21,7 +21,9 @@ else
 fi
 
 # Get the total length of the video in seconds.
-declare -i total_length="$(mpv "$file" --quiet --vo null --ao null --frames 1 --term-playing-msg 'duration=${=duration}' | grep 'duration' | cut -d '=' -f2 | cut -d '.' -f1)"
+#declare -i total_length="$(mpv "$file" --quiet --vo null --ao null --frames 1 --term-playing-msg 'duration=${=duration}' | grep 'duration' | cut -d '=' -f2 | cut -d '.' -f1)"
+
+total_length=$(echo '{ "command": ["get_property", "duration"]}' | socat - /tmp/mpvsocket | cut -d":" -f2 | cut -d . -f1)
 
 # Remove 4 seconds from the video so that it doesn't take screenshot at the ends.
 let total_length-='4'
