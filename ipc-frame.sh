@@ -39,12 +39,31 @@ if [[ -z "$file" ]] || [[ -z "$startFrame" ]] || [[ -z "$numberScreenshots" ]] ;
   exit 1
 fi
  
-
+#start mpv
+ 
+ mpv --pause --loop-file=inf --quiet --no-audio --osd-level=0  --no-border --vo=opengl --scaler-lut-size=8 --scale=spline36 --cscale=spline36 --opengl-fbo-format=rgb16 --linear-scaling --geometry=x1080 --screenshot-template=%F_%ws --input-ipc-server=/tmp/mpvsocket "$file"  > /dev/null 2>&1 &
 
 # Informations grabbing
-declare -r filename="$(basename "${file}")"
-declare -r lastFrame="$(mpv --term-playing-msg='frame=${estimated-frame-count}' --load-scripts=no --quiet --vo=null --ao=null --no-sub --no-cache --no-config --frames 1 "$file" | grep 'frame' | cut -d '=' -f2)"
-declare -r fpsVideo="$(mpv --term-playing-msg='fps=${estimated-vf-fps}' --load-scripts=no --quiet --vo null --ao=null --no-sub --no-cache --no-config --frames 1 "$file" | grep 'fps' | cut -d '=' -f2)"
+#declare -r filename="$(basename "${file}")"
+#declare -r lastFrame="$(mpv --term-playing-msg='frame=${estimated-frame-count}' --load-scripts=no --quiet --vo=null --ao=null --no-sub --no-cache --no-config --frames 1 "$file" | grep 'frame' | cut -d '=' -f2)"
+#declare -r fpsVideo="$(mpv --term-playing-msg='fps=${estimated-vf-fps}' --load-scripts=no --quiet --vo null --ao=null --no-sub --no-cache --no-config --frames 1 "$file" | grep 'fps' | cut -d '=' -f2)"
+
+sleep 1
+
+ declare lastframe=$(echo '{ "command": ["get_property", "estimated-frame-count"]}' | socat - /tmp/mpvsocket | cut -d":" -f2 | cut -d , -f1) 
+
+sleep 1
+
+declare fpsVideo=$(echo '{ "command": ["get_property", "estimated-vf-fps"]}' | socat - /tmp/mpvsocket | cut -d":" -f2 | cut -d , -f1)
+
+
+
+sleep 1
+
+# Set flipBit
+#Needed to correct math. Otherwise variable will be -1/10 of it's needed value, lowering (and reversing) seek.
+
+ declare -r flipBit=-10
 
 # Declare interval for each screenshot
 if [[ -z "$intervalScreenshots" ]] ; then
@@ -74,16 +93,22 @@ for i in $(seq 1 "$numberScreenshots") ; do
   # Debug line
   # mpv --really-quiet --load-scripts=no --no-audio --no-sub --frames 1 --start "$currentTime" "$file" -o "${filename%.*}_${currentTime%%0*}.png"
 
-   mpv --really-quiet --ao=null --start="$currentTime" --vo=opengl --dither-depth=auto --scaler-lut-size=8 --scale=spline36 --cscale=spline36 --opengl-fbo-format=rgb16 --linear-scaling --geometry=x1080 --screenshot-template=%F_%ws --input-ipc-server=/tmp/mpvsocket "$file"  > /dev/null 2>&1 &
-   
-   sleep 1
-   
+     
    echo '{ "command": ["set_property", "pause", true] }'	| socat - /tmp/mpvsocket
    
-   sleep 1
+   sleep 2
+   
+   echo '{ "command": ["seek", '$currentFrame', "absolute"] }' | socat - /tmp/mpvsocket
+   
+   sleep 2
    
    echo '{ "command": ["screenshot", "window"] }' | socat - /tmp/mpvsocket
    
-   sleep 1
+   sleep 2
+   
+   
+
+currentFrame="$(bc -l <<< "$currentFrame+$intervalFrame")"
+
 
 done
