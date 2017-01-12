@@ -61,7 +61,7 @@ declare fpsVideo=$(echo '{ "command": ["get_property", "estimated-vf-fps"]}' | s
 sleep 1
 
 # Set fixBit
-#Needed to correct math. Otherwise the seek invterval will be too small. This will cause seeking to hit the file end before numberScreenshots is achieved..
+#Needed to correct math. Otherwise the seek invterval will be too large. This will cause seeking to hit the file end before numberScreenshots is achieved..
 #Change if deemed needed. It will increase/decrease the interval when using only the -s and -n switches. Using -i will bypass this.
 
  declare -r fixBit=25
