@@ -61,14 +61,15 @@ declare fpsVideo=$(echo '{ "command": ["get_property", "estimated-vf-fps"]}' | s
 sleep 1
 
 # Set flipBit
-#Needed to correct math. Otherwise variable will be -1/10 of it's needed value, lowering (and reversing) seek.
+#Needed to correct math. Otherwise variable will be -1/25 of it's needed value, lowering (and reversing) seek.
+#Change if deemed needed. It will increase/decrease the interval when using only the -s and -n switches. Using -i will bypass this.
 
- declare -r flipBit=-10
-
+ declare -r flipBit=-25
 # Declare interval for each screenshot
 if [[ -z "$intervalScreenshots" ]] ; then
   declare -r diffFrame="$(bc -l <<< "$lastFrame - $startFrame")"
-  declare -r intervalFrame="$(bc -l <<< "$diffFrame / $numberScreenshots")"
+  declare -r preFrame="$(bc -l <<< "$diffFrame / $numberScreenshots")"
+  declare -r intervalFrame="$(bc -l <<< "$preFrame * $flipBit ")"
 else
   declare -r intervalFrame="$intervalScreenshots"
 fi
