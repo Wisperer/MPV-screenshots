@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-while getopts ":f:s:i:n:v" opt; do
+while getopts ":f:s:i:n:g:v:" opt; do
   case $opt in
     f)
       declare -r file="$OPTARG"
@@ -13,6 +13,9 @@ while getopts ":f:s:i:n:v" opt; do
       ;;
     n)
       declare -r numberScreenshots="$OPTARG"
+      ;;
+    g) 
+      declare -r videoHeight="$OPTARG"
       ;;
     v)
       declare -r verbose="TRUE"
@@ -35,19 +38,39 @@ if [[ -z "$file" ]] || [[ -z "$startFrame" ]] || [[ -z "$numberScreenshots" ]] ;
 	-s <the number of the frame of the first screenshot>
 	-i <the interval of frames of the next screenshot>
 	-n <the number of screenshots you want>
+	-g <the desired display resolution>
 	-v <TRUE or FALSE>\n'
   exit 1
 fi
 
+ #make Folder
+mkdir "$(basename "${file}" | cut -d "." -f1)"
+
+ #start mpv
+ 
+ mpv --pause --quiet --no-osc --no-audio --osd-level=0  --no-border --vo=opengl --framedrop=no --scaler-lut-size=8 --scale=spline36 --cscale=spline36 --opengl-fbo-format=rgb16 --linear-scaling --geometry="$videoHeight" --screenshot-template=%F_%ws --screenshot-format=png --screenshot-png-compression=5 --screenshot-directory="$(basename "${file}" | cut -d "." -f1)" "$file" --input-ipc-server=/tmp/mpvsocket  > /dev/null 2>&1 &
+ 
+ 
 # Informations grabbing
-declare -r filename="$(basename "${file}")"
-declare -r lastFrame="$(mpv --term-playing-msg='frame=${estimated-frame-count}' --load-scripts=no --quiet --vo=null --ao=null --no-sub --no-cache --no-config --frames 1 "$file" | grep 'frame' | cut -d '=' -f2)"
-declare -r fpsVideo="$(mpv --term-playing-msg='fps=${estimated-vf-fps}' --load-scripts=no --quiet --vo null --ao=null --no-sub --no-cache --no-config --frames 1 "$file" | grep 'fps' | cut -d '=' -f2)"
+declare -r filename="$(basename "${file}" )"
+
+ sleep 1
+
+ declare -r lastFrame="$(echo '{ "command": ["get_property", "estimated-frame-count"]}' | socat - /tmp/mpvsocket | cut -d":" -f2 | cut -d , -f1)" 
+ 
+ sleep 1
+
+ declare -r fpsVideo="$(echo '{ "command": ["get_property", "estimated-vf-fps"]}' | socat - /tmp/mpvsocket | cut -d":" -f2 | cut -d , -f1)"
+
+
+
+ sleep 1
 
 # Declare interval for each screenshot
 if [[ -z "$intervalScreenshots" ]] ; then
-  declare -r diffFrame="$(bc -l <<< "$lastFrame - $startFrame")"
-  declare -r intervalFrame="$(bc -l <<< "$diffFrame / $numberScreenshots")"
+  declare -r diffFrame="$(awk "BEGIN {printf $lastFrame - $startFrame}")"
+  declare -r intervalFrame="$(awk "BEGIN {printf $diffFrame / $numberScreenshots}")"
+  
 else
   declare -r intervalFrame="$intervalScreenshots"
 fi
@@ -56,7 +79,7 @@ fi
 declare currentFrame="$startFrame"
 for i in $(seq 1 "$numberScreenshots") ; do
   
-  declare currentTime="$(bc -l <<< "$currentFrame / $fpsVideo")"
+   declare currentTime="$(awk "BEGIN {printf $currentFrame / $fpsVideo}")"
   
   if [[ -n "$verbose" ]] ; then
     printf 'Filename: %s\n\n' "$filename"
@@ -67,11 +90,35 @@ for i in $(seq 1 "$numberScreenshots") ; do
     printf 'FPS: %s\n' "$fpsVideo"
     printf 'Interval: %s\n' "$intervalFrame"
     printf 'Screenshot: %02d\n\n\n' "$i"
-  fi
-
+  
+ fi
   # Debug line
   # mpv --really-quiet --load-scripts=no --no-audio --no-sub --frames 1 --start "$currentTime" "$file" -o "${filename%.*}_${currentTime%%0*}.png"
 
-  mpv --really-quiet --ao=null --no-sub --frames 1 --start "$currentTime" "$file" --vo image --vo-image-format png -o "$(printf '%02d_%s.png' "$i" "${filename%.*}")"
-  currentFrame="$(bc -l <<< "$currentFrame + $intervalFrame")"
+   
+   
+   
+   
+   echo '{ "command": ["set_property", "pause", true] }'	| socat - /tmp/mpvsocket
+  
+   sleep 1
+   
+   echo '{ "command": ["seek", '$currentTime', "absolute" ] }' | socat - /tmp/mpvsocket
+   
+   sleep 1
+   
+   echo '{ "command": ["screenshot", "window"] }' | socat - /tmp/mpvsocket
+   
+   sleep 1
+   
+   
+
+currentFrame="$(awk "BEGIN {printf $currentFrame+$intervalFrame}")"
+
+
+
 done
+
+pkill mpv
+
+exit
